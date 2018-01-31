@@ -1,4 +1,4 @@
-#Fork to make Blender Operator
+#Fork to make Blender Operator for Smoke Simmulation
 
 original readme following:
 
