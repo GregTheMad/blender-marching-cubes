@@ -57,26 +57,61 @@ def main():
 #change this part to create your own surfaces
 #####################################################    
     # define a 3D scalarfield (the function which defines the shape of the isosurface)
-    def scalarfield(pos):
-        x,y,z=pos[0],pos[1],pos[2]
-        m=2 #distance between spheres
-        a= 1.0/(1+(x-m)*(x-m)+y*y+z*z)
-        b= 1.0/(1+(x+m)*(x+m)+y*y+z*z)
-        c= 0.5*(sin(6*x)+sin(6*z))
-        csq=c**10
-        return (a+b)-csq
 
-    p0=-5,-5,-5             #first point defining the gridbox of the MC-algorithm
-    p1=5,5,5                #second point defining the gridbox of the MC-algorithm
-    res=200
-    resolution=(res,res,res)   #resolution in x,y,z direction of the grid (10x10x10 means 1000 cubes)
-    isolevel=0.3         #threshold value used for the surface within the scalarfield
+    #obj=bpy.data.objects["Smoke Domain"]
+    obj = bpy.context.active_object
+    
+    if not obj.modifiers["Smoke"].domain_settings:
+        return {"FAILED"}
+    
+    domain=obj.modifiers["Smoke"]
+    
+    #p0=-5,-5,-5             #first point defining the gridbox of the MC-algorithm
+    #p1=5,5,5                #second point defining the gridbox of the MC-algorithm
+    p0=(obj.location.x - (obj.dimensions.x/2)), (obj.location.y - (obj.dimensions.y/2)), (obj.location.z - (obj.dimensions.z/2))
+    p1=(obj.location.x + (obj.dimensions.x/2)), (obj.location.y + (obj.dimensions.y/2)), (obj.location.z + (obj.dimensions.z/2))
+    
+    #res=200
+    #resolution=(res,res,res)   #resolution in x,y,z direction of the grid (10x10x10 means 1000 cubes)
+    res=domain.domain_settings.domain_resolution
+    resolution=(res[0], res[1], res[2])
+    
+    isolevel=0.1         #threshold value used for the surface within the scalarfield
+
+    def scalarfield(pos):
+        #obj=bpy.data.objects["Smoke Domain"]
+        #domain=obj.modifiers["Smoke"]
+        resolution=domain.domain_settings.domain_resolution
+        #x,y,z=pos[0],pos[1],pos[2]
+        
+        rx, ry, rz, = math.trunc(resolution[0]), math.trunc(resolution[1]), math.trunc(resolution[2])
+        x = math.trunc((pos[0]- p0[0])/(p1[0]-p0[0])*rx)
+        y = math.trunc((pos[1]- p0[1])/(p1[1]-p0[1])*ry)
+        z = math.trunc((pos[2]- p0[2])/(p1[2]-p0[2])*rz) - 1
+        print (x, y, z, x + rx*y + rx*ry*z)
+        
+        #m=2 #distance between spheres
+        #a= 1.0/(1+(x-m)*(x-m)+y*y+z*z)
+        #b= 1.0/(1+(x+m)*(x+m)+y*y+z*z)
+        #c= 0.5*(sin(6*x)+sin(6*z))
+        #csq=c**10
+        return domain.domain_settings.flame_grid[x + rx*y + rx*ry*z]  #(a+b)-csq
+        #return  (a+b)-csq
+    
+    
 
 #end of isosurface definition
 ###############################################
 
     start = time.time()
     isosurface(p0,p1,resolution,isolevel,scalarfield)
+    
+    #offset for some reason    
+    obj = bpy.context.active_object
+    obj.location.x -= (p0[0]-p1[0])/(resolution[0]*2)
+    obj.location.y -= (p0[1]-p1[1])/(resolution[1]*2)
+    obj.location.z += (p0[2]-p1[2])/(resolution[2]*2)
+    
     elapsed = time.time()-start
     print("end test %r"%elapsed)
 
@@ -439,6 +474,7 @@ def create_mesh_for(objname,verts,faces):
     me = bpy.data.meshes.new(objname)  # create a new mesh
     me.from_pydata(verts,[],faces)
     me.update()      # update the mesh with the new data
+    me.flip_normals()
 
 
     bm = bmesh.new()
